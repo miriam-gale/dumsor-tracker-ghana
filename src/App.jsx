@@ -22,14 +22,23 @@ export default function App() {
   const openModal = useCallback(() => setModalOpen(true), [])
   const closeModal = useCallback(() => setModalOpen(false), [])
 
-  const handleReportSubmit = useCallback((formData) => {
-    const newOutage = addOutage(formData)
-    setModalOpen(false)
-    setToast({
-      visible: true,
-      title: 'Report submitted!',
-      body: `${newOutage.town}, ${newOutage.region} — report added to the feed.`,
-    })
+  const handleReportSubmit = useCallback(async (formData) => {
+    try {
+      const newOutage = await addOutage(formData)
+      setModalOpen(false)
+      setToast({
+        visible: true,
+        title: 'Report submitted!',
+        body: `${newOutage.town}, ${newOutage.region} — report added to the feed.`,
+      })
+    } catch (err) {
+      setModalOpen(false)
+      setToast({
+        visible: true,
+        title: 'Submission failed',
+        body: err.message || 'Could not submit your report. Please try again.',
+      })
+    }
   }, [addOutage])
 
   const dismissToast = useCallback(() => setToast(t => ({ ...t, visible: false })), [])
@@ -87,7 +96,7 @@ export default function App() {
         />
       </Routes>
 
-      <ReportModal isOpen={modalOpen} onClose={closeModal} onSubmit={handleReportSubmit} />
+      <ReportModal key={modalOpen ? 'open' : 'closed'} isOpen={modalOpen} onClose={closeModal} onSubmit={handleReportSubmit} />
       <Toast visible={toast.visible} title={toast.title} body={toast.body} onClose={dismissToast} />
     </BrowserRouter>
   )

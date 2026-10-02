@@ -13,20 +13,19 @@ const SEVERITIES = [
 const EMPTY_FORM = { region: '', town: '', severity: '', startedAt: '', description: '', phone: '' }
 
 export function ReportModal({ isOpen, onClose, onSubmit }) {
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(() => {
+    const now = new Date()
+    now.setSeconds(0, 0)
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+    return { ...EMPTY_FORM, startedAt: local }
+  })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const firstInputRef = useRef(null)
 
   useEffect(() => {
-    if (!isOpen) return
-    const now = new Date()
-    now.setSeconds(0, 0)
-    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-    setForm({ ...EMPTY_FORM, startedAt: local })
-    setErrors({})
     setTimeout(() => firstInputRef.current?.focus(), 80)
-  }, [isOpen])
+  }, [])
 
   useEffect(() => {
     if (!isOpen) return
@@ -203,7 +202,7 @@ export function ReportModal({ isOpen, onClose, onSubmit }) {
                 type="datetime-local"
                 value={form.startedAt}
                 onChange={e => set('startedAt', e.target.value)}
-                max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                max={form.startedAt}
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-sm outline-none border transition-colors"
                 style={{
                   background: 'var(--bg-input)',

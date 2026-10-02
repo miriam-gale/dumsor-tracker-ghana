@@ -135,6 +135,8 @@ export default function ReportPage({ addOutage }) {
   const [submitted, setSubmitted] = useState(false)
   const [lastSubmit, setLastSubmit] = useState(null)
   const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
   const [form, setForm] = useState({
     region: '',
     town: '',
@@ -171,11 +173,20 @@ export default function ReportPage({ addOutage }) {
   const next = () => { if (validate()) setStep(s => s + 1) }
   const prev = () => setStep(s => s - 1)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const result = addOutage(form)
-    setLastSubmit({ form: { ...form }, result })
-    setSubmitted(true)
+    if (submitting) return
+    setSubmitError(null)
+    setSubmitting(true)
+    try {
+      const result = await addOutage(form)
+      setLastSubmit({ form: { ...form }, result })
+      setSubmitted(true)
+    } catch (err) {
+      setSubmitError(err.message || 'Could not submit your report. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const resetForm = () => {
@@ -183,6 +194,8 @@ export default function ReportPage({ addOutage }) {
     setLastSubmit(null)
     setStep(0)
     setErrors({})
+    setSubmitError(null)
+    setSubmitting(false)
     setForm({ region: '', town: '', area: '', severity: '', startedAt: getNow(), description: '', reporter: '', phone: '', email: '' })
   }
 
@@ -593,41 +606,73 @@ export default function ReportPage({ addOutage }) {
 
           {/* Navigation footer */}
           <div
-            className="px-6 sm:px-7 py-4 border-t flex items-center justify-between gap-3"
+            className="px-6 sm:px-7 py-4 border-t"
             style={{ background: 'var(--overlay-xs)', borderColor: 'var(--border)' }}
           >
-            {step > 0 ? (
-              <button
-                type="button"
-                onClick={prev}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border transition-all"
-                style={{ background: 'var(--overlay-sm)', borderColor: 'var(--border)', color: 'var(--text-2)' }}
-              >
-                <ArrowLeft size={14} /> Back
-              </button>
-            ) : (
-              <span />
+            {submitError && (
+              <p className="flex items-center gap-1.5 text-xs text-red-400 mb-3">
+                <AlertTriangle size={11} className="flex-shrink-0" />
+                {submitError}
+              </p>
             )}
+            <div className="flex items-center justify-between gap-3">
+              {step > 0 ? (
+                <button
+                  type="button"
+                  onClick={prev}
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border transition-all"
+                  style={{
+                    background: 'var(--overlay-sm)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-2)',
+                    opacity: submitting ? 0.5 : 1,
+                  }}
+                >
+                  <ArrowLeft size={14} /> Back
+                </button>
+              ) : (
+                <span />
+              )}
 
-            {step < STEPS.length - 1 ? (
-              <button
-                type="button"
-                onClick={next}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-[#0F172A] transition-all hover:-translate-y-0.5"
-                style={{ background: 'linear-gradient(135deg, #FFB000 0%, #D99600 100%)', boxShadow: '0 4px 16px rgba(255,176,0,0.3)' }}
-              >
-                Continue <ArrowRight size={14} />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-7 py-2.5 rounded-xl font-bold text-sm text-[#0F172A] transition-all hover:-translate-y-0.5"
-                style={{ background: 'linear-gradient(135deg, #FFB000 0%, #D99600 100%)', boxShadow: '0 6px 24px rgba(255,176,0,0.4)' }}
-              >
-                <Zap size={15} fill="currentColor" />
-                Submit Report
-              </button>
-            )}
+              {step < STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={next}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-[#0F172A] transition-all hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg, #FFB000 0%, #D99600 100%)', boxShadow: '0 4px 16px rgba(255,176,0,0.3)' }}
+                >
+                  Continue <ArrowRight size={14} />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-7 py-2.5 rounded-xl font-bold text-sm text-[#0F172A] transition-all hover:-translate-y-0.5"
+                  style={{
+                    background: 'linear-gradient(135deg, #FFB000 0%, #D99600 100%)',
+                    boxShadow: '0 6px 24px rgba(255,176,0,0.4)',
+                    opacity: submitting ? 0.7 : 1,
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {submitting ? (
+                    <>
+                      <span
+                        className="w-4 h-4 rounded-full border-2 border-[#0F172A] border-t-transparent animate-spin"
+                        aria-hidden="true"
+                      />
+                      Submitting…
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={15} fill="currentColor" />
+                      Submit Report
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </form>
 

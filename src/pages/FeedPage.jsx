@@ -1,12 +1,14 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Search, MapPin, Clock, Users, AlertTriangle, ChevronDown,
-  Zap, X, SortAsc, Filter, CheckCircle,
+  Zap, X, SortAsc, Filter, CheckCircle, ThumbsUp,
 } from 'lucide-react'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { SeverityBadge } from '../components/ui/SeverityBadge'
 import { timeAgo } from '../utils/formatters'
 import { REGIONS } from '../data/outages'
+import { supabase } from '../lib/supabase'
+import { getToken, getDeviceId } from '../hooks/useOutages'
 
 const SEV_COLOR  = { critical: '#EF4444', high: '#F97316', medium: '#FFB000', low: '#3B82F6' }
 const SEV_ORDER  = { critical: 4, high: 3, medium: 2, low: 1 }
@@ -61,8 +63,8 @@ function SortSelect({ value, onChange }) {
   )
 }
 
-/* ── confirmation dialog ── */
-function ConfirmDialog({ outage, onCancel, onConfirm }) {
+/* ── confirmation dialog (restore) ── */
+function ConfirmDialog({ outage, onCancel, onConfirm, resolving, resolveError }) {
   if (!outage) return null
   const sevColor = SEV_COLOR[outage.severity] || '#64748b'
   return (
@@ -104,7 +106,7 @@ function ConfirmDialog({ outage, onCancel, onConfirm }) {
         {/* Outage summary */}
         <div className="px-5 py-4">
           <div
-            className="rounded-xl border-l-[3px] px-4 py-3 mb-5"
+            className="rounded-xl border-l-[3px] px-4 py-3 mb-4"
             style={{ background: 'var(--overlay-sm)', borderLeftColor: sevColor, borderColor: 'var(--border)' }}
           >
             <div className="font-bold text-sm mb-0.5" style={{ color: 'var(--text-1)' }}>
@@ -117,30 +119,53 @@ function ConfirmDialog({ outage, onCancel, onConfirm }) {
             </div>
           </div>
 
+          {resolveError && (
+            <p className="flex items-center gap-1.5 text-xs mb-3 text-red-400">
+              <AlertTriangle size={11} className="flex-shrink-0" />
+              {resolveError}
+            </p>
+          )}
+
           {/* Action buttons */}
           <div className="flex gap-3">
             <button
               onClick={onCancel}
+              disabled={resolving}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all hover:opacity-80"
               style={{
                 background: 'var(--overlay-sm)',
                 borderColor: 'var(--border-strong)',
                 color: 'var(--text-1)',
+                opacity: resolving ? 0.5 : 1,
               }}
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
+              disabled={resolving}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5"
               style={{
                 background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
                 color: 'white',
                 boxShadow: '0 4px 20px rgba(34,197,94,0.28)',
+                opacity: resolving ? 0.7 : 1,
               }}
             >
-              <CheckCircle className="w-4 h-4" />
-              Mark as Restored
+              {resolving ? (
+                <>
+                  <span
+                    className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"
+                    aria-hidden="true"
+                  />
+                  Resolving…
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Mark as Restored
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -150,9 +175,18 @@ function ConfirmDialog({ outage, onCancel, onConfirm }) {
 }
 
 /* ── outage card ── */
-function OutageCard({ outage, onResolve }) {
+function OutageCard({
+  outage,
+  isReporter,
+  onResolve,
+  confirmCount,
+  hasConfirmed,
+  isConfirming,
+  onConfirm,
+}) {
   const sevColor = SEV_COLOR[outage.severity] || '#64748b'
   const isActive = outage.status === 'active'
+
   return (
     <div
       className="group rounded-2xl border border-l-[3px] overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
@@ -237,24 +271,74 @@ function OutageCard({ outage, onResolve }) {
           )}
         </div>
 
-        {/* Mark as Restored action — active outages only */}
-        {isActive && onResolve && (
-          <div className="mt-3.5 pt-3.5 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>
-              Power restored in this area?
-            </span>
-            <button
-              onClick={() => onResolve(outage)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80 hover:-translate-y-0.5"
-              style={{
-                background: 'rgba(34,197,94,0.09)',
-                border:     '1px solid rgba(34,197,94,0.25)',
-                color:      '#22c55e',
-              }}
-            >
-              <CheckCircle size={11} />
-              Mark as Restored
-            </button>
+        {/* Bottom section — active outages only */}
+        {isActive && (
+          <div className="mt-3.5 pt-3.5 border-t" style={{ borderColor: 'var(--border)' }}>
+
+            {/* Community confirmations row */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}>
+                <Users size={10} className="flex-shrink-0" />
+                <span className="font-medium" style={{ color: 'var(--text-2)' }}>
+                  {confirmCount}
+                </span>
+                {' '}community confirmation{confirmCount !== 1 ? 's' : ''}
+              </span>
+
+              {/* Non-reporters see the confirm button; reporters see nothing here */}
+              {!isReporter && (
+                hasConfirmed ? (
+                  <span
+                    className="text-xs font-semibold flex items-center gap-1.5"
+                    style={{ color: '#22c55e' }}
+                  >
+                    <CheckCircle size={11} />
+                    You confirmed this
+                  </span>
+                ) : (
+                  <button
+                    onClick={onConfirm}
+                    disabled={isConfirming}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all hover:opacity-80"
+                    style={{
+                      background:  'var(--overlay-xs)',
+                      borderColor: 'var(--border)',
+                      color:       'var(--text-2)',
+                      opacity:     isConfirming ? 0.6 : 1,
+                      cursor:      isConfirming ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <ThumbsUp size={11} />
+                    {isConfirming ? 'Confirming…' : "I'm experiencing this too"}
+                  </button>
+                )
+              )}
+            </div>
+
+            {/* Reporter-only: Mark as Restored — security enforced at DB level via token */}
+            {isReporter && (
+              <div
+                className="flex items-center justify-between mt-2.5 pt-2.5 border-t"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+                  Power restored in this area?
+                </span>
+                <button
+                  onClick={() => onResolve(outage)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80 hover:-translate-y-0.5"
+                  style={{
+                    background: 'rgba(34,197,94,0.09)',
+                    border:     '1px solid rgba(34,197,94,0.25)',
+                    color:      '#22c55e',
+                  }}
+                >
+                  <CheckCircle size={11} />
+                  Mark as Restored
+                </button>
+              </div>
+            )}
+
           </div>
         )}
       </div>
@@ -269,6 +353,78 @@ export default function FeedPage({ outages, openModal, resolveOutage }) {
   const [regionFilter,  setRegionFilter]  = useState('all')
   const [sort,          setSort]          = useState('newest')
   const [confirmTarget, setConfirmTarget] = useState(null)
+  const [resolving,     setResolving]     = useState(false)
+  const [resolveError,  setResolveError]  = useState(null)
+
+  // Community confirmations state
+  const [confirmations, setConfirmations] = useState([])   // [{ outage_id, device_id }]
+  const [confirmingId,  setConfirmingId]  = useState(null) // outage ID being confirmed
+
+  // Stable device ID for this browser
+  const deviceId = useMemo(() => getDeviceId(), [])
+
+  // Load confirmation metadata on mount (outage_id + device_id only, no personal data)
+  useEffect(() => {
+    supabase
+      .from('community_confirmations')
+      .select('outage_id, device_id')
+      .then(({ data }) => {
+        if (data) setConfirmations(data)
+      })
+  }, [])
+
+  function openResolveDialog(outage) {
+    setConfirmTarget(outage)
+    setResolveError(null)
+    setResolving(false)
+  }
+
+  // ── confirmation helpers ────────────────────────────────────────────────────
+  const getConfirmCount = useCallback((outageId) =>
+    confirmations.filter(c => String(c.outage_id) === String(outageId)).length,
+    [confirmations]
+  )
+  const checkHasConfirmed = useCallback((outageId) =>
+    confirmations.some(c => String(c.outage_id) === String(outageId) && c.device_id === deviceId),
+    [confirmations, deviceId]
+  )
+
+  const handleConfirm = useCallback(async (outageId) => {
+    setConfirmingId(outageId)
+    const { error } = await supabase.from('community_confirmations').insert({
+      outage_id: Number(outageId),
+      device_id: deviceId,
+    })
+    if (!error) {
+      // Successful new confirmation
+      setConfirmations(prev => [...prev, { outage_id: Number(outageId), device_id: deviceId }])
+    } else if (error.code === '23505') {
+      // Unique violation: device already confirmed — sync local state
+      setConfirmations(prev =>
+        prev.some(c => String(c.outage_id) === String(outageId) && c.device_id === deviceId)
+          ? prev
+          : [...prev, { outage_id: Number(outageId), device_id: deviceId }]
+      )
+    } else {
+      console.error('[confirm]', error.message)
+    }
+    setConfirmingId(null)
+  }, [deviceId])
+
+  // ── restore dialog handler ─────────────────────────────────────────────────
+  const handleConfirmResolve = useCallback(async () => {
+    if (!confirmTarget || resolving) return
+    setResolveError(null)
+    setResolving(true)
+    try {
+      await resolveOutage(confirmTarget.id)
+      setConfirmTarget(null)
+    } catch (err) {
+      setResolveError(err.message || 'Failed to resolve outage. Please try again.')
+    } finally {
+      setResolving(false)
+    }
+  }, [confirmTarget, resolveOutage, resolving])
 
   /* quick-filter counts */
   const counts = useMemo(() => ({
@@ -323,24 +479,19 @@ export default function FeedPage({ outages, openModal, resolveOutage }) {
     setQuickFilter('all')
   }
 
-  const handleConfirmResolve = () => {
-    if (confirmTarget) {
-      resolveOutage(confirmTarget.id)
-      setConfirmTarget(null)
-    }
-  }
-
   const activeCount   = counts.active
   const criticalCount = outages.filter(o => o.severity === 'critical' && o.status === 'active').length
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-5 min-h-full">
 
-      {/* ── Confirmation dialog ── */}
+      {/* ── Restore confirmation dialog ── */}
       <ConfirmDialog
         outage={confirmTarget}
-        onCancel={() => setConfirmTarget(null)}
+        onCancel={() => { if (!resolving) setConfirmTarget(null) }}
         onConfirm={handleConfirmResolve}
+        resolving={resolving}
+        resolveError={resolveError}
       />
 
       {/* ── Page header ── */}
@@ -528,7 +679,12 @@ export default function FeedPage({ outages, openModal, resolveOutage }) {
             <OutageCard
               key={outage.id}
               outage={outage}
-              onResolve={resolveOutage ? setConfirmTarget : null}
+              isReporter={!!getToken(outage.id)}
+              onResolve={openResolveDialog}
+              confirmCount={getConfirmCount(outage.id)}
+              hasConfirmed={checkHasConfirmed(outage.id)}
+              isConfirming={confirmingId === outage.id}
+              onConfirm={() => handleConfirm(outage.id)}
             />
           ))}
         </div>
