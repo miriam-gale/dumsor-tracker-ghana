@@ -37,12 +37,35 @@ const REGION_CAPITALS = {
   'Upper West':    [-2.50, 10.06],
 }
 
+// ── Severity palette ─────────────────────────────────────────────────────────
+
+const SEVERITY_ORDER = { low: 1, medium: 2, high: 3, critical: 4 }
+
+const SEVERITY_FILL = {
+  low:      'rgba(234,179,8,0.30)',
+  medium:   'rgba(249,115,22,0.30)',
+  high:     'rgba(239,68,68,0.32)',
+  critical: 'rgba(127,29,29,0.50)',
+}
+
+const SEVERITY_COLOR = {
+  low:      '#EAB308',
+  medium:   '#F97316',
+  high:     '#EF4444',
+  critical: '#DC2626',
+}
+
+const LEGEND_ITEMS = [
+  ['critical', 'Critical'],
+  ['high',     'High'],
+  ['medium',   'Medium'],
+  ['low',      'Low'],
+]
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function pinColor(outage) {
-  if (outage.status === 'active') {
-    return (outage.severity === 'critical' || outage.severity === 'high') ? '#ef4444' : '#FFB000'
-  }
+  if (outage.status === 'active') return SEVERITY_COLOR[outage.severity] || '#FFB000'
   if (outage.status === 'resolved') return '#22c55e'
   return '#3b82f6'
 }
@@ -178,9 +201,14 @@ export default function MapPage({ outages }) {
   const regionStats = useMemo(() => {
     const s = {}
     outages.forEach(o => {
-      if (!s[o.region]) s[o.region] = { active: 0, resolved: 0, total: 0 }
+      if (!s[o.region]) s[o.region] = { active: 0, resolved: 0, total: 0, maxSeverity: null }
       s[o.region].total++
-      if (o.status === 'active')   s[o.region].active++
+      if (o.status === 'active') {
+        s[o.region].active++
+        const cur  = SEVERITY_ORDER[o.severity] || 0
+        const prev = SEVERITY_ORDER[s[o.region].maxSeverity] || 0
+        if (cur > prev) s[o.region].maxSeverity = o.severity
+      }
       if (o.status === 'resolved') s[o.region].resolved++
     })
     return s
@@ -244,11 +272,11 @@ export default function MapPage({ outages }) {
     return 0
   }), [filtered, selected])
 
-  // Region fill based on outage status + hover
+  // Region fill based on outage severity + hover
   const getRegionFill = useCallback((regionName) => {
     if (hoveredRegion === regionName) return 'rgba(255,176,0,0.28)'
     const stats = regionStats[regionName]
-    if (stats?.active > 0) return 'rgba(239,68,68,0.22)'
+    if (stats?.active > 0 && stats.maxSeverity) return SEVERITY_FILL[stats.maxSeverity]
     if (stats?.total  > 0) return 'rgba(34,197,94,0.18)'
     return '#162238'
   }, [hoveredRegion, regionStats])
@@ -447,6 +475,12 @@ export default function MapPage({ outages }) {
                       <span>Active</span>
                       <span className="font-semibold" style={{ color: '#ef4444' }}>{stats.active}</span>
                     </div>
+                    {stats.active > 0 && stats.maxSeverity && (
+                      <div className="flex justify-between gap-4">
+                        <span>Severity</span>
+                        <span className="font-semibold capitalize" style={{ color: SEVERITY_COLOR[stats.maxSeverity] }}>{stats.maxSeverity}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between gap-4">
                       <span>Resolved</span>
                       <span className="font-semibold" style={{ color: '#22c55e' }}>{stats.resolved}</span>
@@ -534,6 +568,14 @@ export default function MapPage({ outages }) {
                       <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>{selected.affectedHomes?.toLocaleString()}</div>
                     </div>
                   </div>
+                  {selected.startedAt && (
+                    <div className="rounded-lg p-2.5" style={{ background: 'var(--overlay-sm)' }}>
+                      <div className="flex items-center gap-1 text-xs mb-1" style={{ color: 'var(--text-3)' }}><Clock className="w-3 h-3" /> Started</div>
+                      <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>
+                        {new Date(selected.startedAt).toLocaleString('en-GH', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-3)' }}>
                     <span>
                       {selected.reporter
@@ -545,6 +587,31 @@ export default function MapPage({ outages }) {
                 </div>
               </div>
             )}
+
+            {/* ── Severity legend ── */}
+            <div
+              className="absolute bottom-4 left-3 pointer-events-none rounded-xl border px-3 py-2"
+              style={{
+                background:     'rgba(4,12,28,0.88)',
+                borderColor:    'rgba(255,255,255,0.1)',
+                backdropFilter: 'blur(12px)',
+                boxShadow:      '0 4px 20px rgba(0,0,0,0.5)',
+              }}
+            >
+              <div className="text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Severity</div>
+              <div className="space-y-1">
+                {LEGEND_ITEMS.map(([sev, label]) => (
+                  <div key={sev} className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: SEVERITY_COLOR[sev] }} />
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)', fontSize: 9.5 }}>{label}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5 pt-0.5 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: '#162238' }} />
+                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)', fontSize: 9.5 }}>No outage</span>
+                </div>
+              </div>
+            </div>
 
             {/* Bottom summary bar */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none">

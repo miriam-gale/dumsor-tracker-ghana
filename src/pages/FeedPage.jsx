@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
   Search, MapPin, Clock, Users, AlertTriangle, ChevronDown,
-  Zap, X, SortAsc, Filter,
+  Zap, X, SortAsc, Filter, CheckCircle,
 } from 'lucide-react'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { SeverityBadge } from '../components/ui/SeverityBadge'
@@ -61,9 +61,98 @@ function SortSelect({ value, onChange }) {
   )
 }
 
-/* ── outage card ── */
-function OutageCard({ outage }) {
+/* ── confirmation dialog ── */
+function ConfirmDialog({ outage, onCancel, onConfirm }) {
+  if (!outage) return null
   const sevColor = SEV_COLOR[outage.severity] || '#64748b'
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border overflow-hidden"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Dialog header */}
+        <div className="flex items-start gap-3.5 px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.22)' }}
+          >
+            <CheckCircle className="w-5 h-5" style={{ color: '#22c55e' }} />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm leading-tight" style={{ color: 'var(--text-1)' }}>
+              Mark this outage as restored?
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+              Power has been restored to this area
+            </p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="ml-auto p-1 rounded-lg flex-shrink-0"
+            style={{ color: 'var(--text-3)' }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Outage summary */}
+        <div className="px-5 py-4">
+          <div
+            className="rounded-xl border-l-[3px] px-4 py-3 mb-5"
+            style={{ background: 'var(--overlay-sm)', borderLeftColor: sevColor, borderColor: 'var(--border)' }}
+          >
+            <div className="font-bold text-sm mb-0.5" style={{ color: 'var(--text-1)' }}>
+              {outage.town}{outage.area ? `, ${outage.area}` : ''}
+            </div>
+            <div className="text-xs mb-2" style={{ color: 'var(--text-3)' }}>{outage.region}</div>
+            <div className="flex items-center gap-2">
+              <SeverityBadge severity={outage.severity} />
+              <StatusBadge status={outage.status} />
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all hover:opacity-80"
+              style={{
+                background: 'var(--overlay-sm)',
+                borderColor: 'var(--border-strong)',
+                color: 'var(--text-1)',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5"
+              style={{
+                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                color: 'white',
+                boxShadow: '0 4px 20px rgba(34,197,94,0.28)',
+              }}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Mark as Restored
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── outage card ── */
+function OutageCard({ outage, onResolve }) {
+  const sevColor = SEV_COLOR[outage.severity] || '#64748b'
+  const isActive = outage.status === 'active'
   return (
     <div
       className="group rounded-2xl border border-l-[3px] overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
@@ -135,23 +224,51 @@ function OutageCard({ outage }) {
               {outage.affectedHomes.toLocaleString()} homes
             </span>
           )}
+          {outage.status === 'resolved' && outage.resolvedAt && (
+            <span className="flex items-center gap-1.5" style={{ color: '#22c55e' }}>
+              <CheckCircle size={10} className="flex-shrink-0" />
+              Restored {timeAgo(outage.resolvedAt)}
+            </span>
+          )}
           {outage.reporter && (
             <span className="ml-auto">
               By <span style={{ color: 'var(--text-2)' }}>{outage.reporter}</span>
             </span>
           )}
         </div>
+
+        {/* Mark as Restored action — active outages only */}
+        {isActive && onResolve && (
+          <div className="mt-3.5 pt-3.5 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-xs" style={{ color: 'var(--text-3)' }}>
+              Power restored in this area?
+            </span>
+            <button
+              onClick={() => onResolve(outage)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-80 hover:-translate-y-0.5"
+              style={{
+                background: 'rgba(34,197,94,0.09)',
+                border:     '1px solid rgba(34,197,94,0.25)',
+                color:      '#22c55e',
+              }}
+            >
+              <CheckCircle size={11} />
+              Mark as Restored
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 /* ── main page ── */
-export default function FeedPage({ outages, openModal }) {
-  const [search,       setSearch]       = useState('')
-  const [quickFilter,  setQuickFilter]  = useState('all')
-  const [regionFilter, setRegionFilter] = useState('all')
-  const [sort,         setSort]         = useState('newest')
+export default function FeedPage({ outages, openModal, resolveOutage }) {
+  const [search,        setSearch]        = useState('')
+  const [quickFilter,   setQuickFilter]   = useState('all')
+  const [regionFilter,  setRegionFilter]  = useState('all')
+  const [sort,          setSort]          = useState('newest')
+  const [confirmTarget, setConfirmTarget] = useState(null)
 
   /* quick-filter counts */
   const counts = useMemo(() => ({
@@ -206,11 +323,25 @@ export default function FeedPage({ outages, openModal }) {
     setQuickFilter('all')
   }
 
-  const activeCount  = counts.active
+  const handleConfirmResolve = () => {
+    if (confirmTarget) {
+      resolveOutage(confirmTarget.id)
+      setConfirmTarget(null)
+    }
+  }
+
+  const activeCount   = counts.active
   const criticalCount = outages.filter(o => o.severity === 'critical' && o.status === 'active').length
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-5 min-h-full">
+
+      {/* ── Confirmation dialog ── */}
+      <ConfirmDialog
+        outage={confirmTarget}
+        onCancel={() => setConfirmTarget(null)}
+        onConfirm={handleConfirmResolve}
+      />
 
       {/* ── Page header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -279,7 +410,6 @@ export default function FeedPage({ outages, openModal }) {
 
         {/* Quick filter pills + secondary controls */}
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          {/* Pill tabs */}
           <div className="flex items-center gap-1.5 flex-wrap">
             {QUICK_FILTERS.map(({ id, label, count }) => {
               const active = quickFilter === id
@@ -292,7 +422,6 @@ export default function FeedPage({ outages, openModal }) {
                     background: active ? 'rgba(255,176,0,0.12)' : 'var(--overlay-sm)',
                     color:      active ? '#FFB000' : 'var(--text-3)',
                     border:     active ? '1px solid rgba(255,176,0,0.3)' : '1px solid var(--border)',
-                    boxShadow:  active ? '0 0 0 0' : 'none',
                   }}
                 >
                   {label}
@@ -310,7 +439,6 @@ export default function FeedPage({ outages, openModal }) {
             })}
           </div>
 
-          {/* Region + sort */}
           <div className="flex items-center gap-2 ml-auto">
             <RegionSelect value={regionFilter} onChange={setRegionFilter} />
             <SortSelect   value={sort}         onChange={setSort} />
@@ -343,7 +471,6 @@ export default function FeedPage({ outages, openModal }) {
 
       {/* ── Feed ── */}
       {outages.length === 0 ? (
-        /* No reports at all */
         <div
           className="flex flex-col items-center justify-center py-24 rounded-2xl border border-dashed"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-strong)' }}
@@ -371,7 +498,6 @@ export default function FeedPage({ outages, openModal }) {
           </button>
         </div>
       ) : filtered.length === 0 ? (
-        /* Has data but no match */
         <div
           className="flex flex-col items-center justify-center py-20 rounded-2xl border border-dashed"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-strong)' }}
@@ -399,7 +525,11 @@ export default function FeedPage({ outages, openModal }) {
       ) : (
         <div className="space-y-3">
           {filtered.map(outage => (
-            <OutageCard key={outage.id} outage={outage} />
+            <OutageCard
+              key={outage.id}
+              outage={outage}
+              onResolve={resolveOutage ? setConfirmTarget : null}
+            />
           ))}
         </div>
       )}

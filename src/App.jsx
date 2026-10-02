@@ -15,7 +15,7 @@ import AnalyticsPage from './pages/AnalyticsPage'
 
 export default function App() {
   const [dark, setDark] = useDarkMode()
-  const { outages, addOutage, stats } = useOutages()
+  const { outages, addOutage, resolveOutage, stats } = useOutages()
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState({ visible: false, title: '', body: '' })
 
@@ -73,7 +73,7 @@ export default function App() {
           path="/feed"
           element={
             <MainLayout dark={dark} setDark={setDark} openModal={openModal}>
-              <FeedPage outages={outages} openModal={openModal} />
+              <FeedPage outages={outages} openModal={openModal} resolveOutage={resolveOutage} />
             </MainLayout>
           }
         />

@@ -1,7 +1,20 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { STATUS, SEVERITY } from '../data/outages'
 
+const STORAGE_KEY = 'dumsor_outages_v1'
+
 let nextId = 1
+
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const saved = JSON.parse(raw)
+    const maxId = saved.reduce((m, o) => Math.max(m, parseInt(o.id, 10) || 0), 0)
+    if (maxId >= nextId) nextId = maxId + 1
+    return saved
+  } catch { return [] }
+}
 
 function computeDuration(startedAt) {
   if (!startedAt) return 'Unknown'
@@ -17,7 +30,11 @@ function computeDuration(startedAt) {
 }
 
 export function useOutages() {
-  const [outages, setOutages] = useState([])
+  const [outages, setOutages] = useState(loadSaved)
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(outages))
+  }, [outages])
 
   const addOutage = useCallback((formData) => {
     const newOutage = {
@@ -46,6 +63,19 @@ export function useOutages() {
     setOutages(prev => prev.map(o => o.id === id ? { ...o, status } : o))
   }, [])
 
+  const resolveOutage = useCallback((id) => {
+    setOutages(prev => prev.map(o => {
+      if (o.id !== id || o.status !== STATUS.ACTIVE) return o
+      const resolvedAt = new Date().toISOString()
+      return {
+        ...o,
+        status:     STATUS.RESOLVED,
+        resolvedAt,
+        duration:   computeDuration(o.startedAt),
+      }
+    }))
+  }, [])
+
   const active = outages.filter(o => o.status === STATUS.ACTIVE)
 
   const stats = {
@@ -57,5 +87,5 @@ export function useOutages() {
     regionsAffected: new Set(active.map(o => o.region)).size,
   }
 
-  return { outages, addOutage, updateStatus, stats }
+  return { outages, addOutage, updateStatus, resolveOutage, stats }
 }
