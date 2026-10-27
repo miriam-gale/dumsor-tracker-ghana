@@ -1,23 +1,23 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
-  Search, MapPin, Clock, Users, AlertTriangle, ChevronDown,
-  Zap, X, SortAsc, Filter, CheckCircle, ThumbsUp,
+  Search, MapPin, Clock, Users, AlertTriangle,
+  ChevronDown, ArrowUpDown, CheckCircle, ThumbsUp,
+  X, Zap, Filter,
 } from 'lucide-react'
-import { StatusBadge } from '../components/ui/StatusBadge'
-import { SeverityBadge } from '../components/ui/SeverityBadge'
-import { timeAgo } from '../utils/formatters'
 import { REGIONS } from '../data/outages'
 import { supabase } from '../lib/supabase'
 import { getToken, getDeviceId } from '../hooks/useOutages'
+import { SeverityBadge } from '../components/ui/SeverityBadge'
+import { StatusBadge } from '../components/ui/StatusBadge'
+import { timeAgo } from '../utils/formatters'
 
-const SEV_COLOR  = { critical: '#EF4444', high: '#F97316', medium: '#FFB000', low: '#3B82F6' }
-const SEV_ORDER  = { critical: 4, high: 3, medium: 2, low: 1 }
-
+const SEV_COLOR   = { critical: '#EF4444', high: '#F97316', medium: '#FFB000', low: '#3B82F6' }
+const SEV_ORDER   = { low: 1, medium: 2, high: 3, critical: 4 }
 const SORT_OPTIONS = [
   { value: 'newest',   label: 'Newest first' },
   { value: 'oldest',   label: 'Oldest first' },
-  { value: 'severity', label: 'Severity' },
-  { value: 'homes',    label: 'Most affected' },
+  { value: 'severity', label: 'By severity' },
+  { value: 'homes',    label: 'Most homes affected' },
 ]
 
 /* ── small helpers ── */
@@ -47,7 +47,7 @@ function RegionSelect({ value, onChange }) {
 function SortSelect({ value, onChange }) {
   return (
     <div className="relative">
-      <SortAsc className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--text-3)' }} />
+      <ArrowUpDown className="absolute left-2.5 top-1/2-translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--text-3)' }} />
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
@@ -692,3 +692,4 @@ export default function FeedPage({ outages, openModal, resolveOutage }) {
     </div>
   )
 }
+    
