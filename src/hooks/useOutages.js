@@ -167,16 +167,16 @@ export function useOutages() {
       .from('outages')
       .select('id, region, town, area, severity, description, reporter, started_at, resolved_at, status, timestamp, lat, lng, affected_homes')
       .order('timestamp', { ascending: false })
-   
-if (err) {
-  console.error('[useOutages] fetch error:', err.message)
-  setError('Could not load outages. Check your connection and try again.')
-} else {
-  setOutages((data || []).map(mapRow))
-  setError(null)
-}
 
-setLoading(false)
+    if (err) {
+      console.error('[useOutages] fetch error:', err.message)
+      setError('Could not load outages. Check your connection and try again.')
+    } else {
+      setOutages((data || []).map(mapRow))
+      setError(null)
+    }
+
+    setLoading(false)
   }, [])
 
 
