@@ -3,6 +3,12 @@ import { createPortal } from 'react-dom'
 import { X, Zap, MapPin, Clock, FileText, Phone, ChevronDown } from 'lucide-react'
 import { REGIONS } from '../data/outages'
 
+function getNowLocal() {
+  const d = new Date()
+  d.setSeconds(0, 0)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
 const SEVERITIES = [
   { value: 'low',      label: 'Low',      color: '#3B82F6', desc: 'Minor inconvenience' },
   { value: 'medium',   label: 'Medium',   color: '#FFB000', desc: 'Affects daily activities' },
@@ -202,7 +208,7 @@ export function ReportModal({ isOpen, onClose, onSubmit }) {
                 type="datetime-local"
                 value={form.startedAt}
                 onChange={e => set('startedAt', e.target.value)}
-                max={form.startedAt}
+                max={getNowLocal()}
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-sm outline-none border transition-colors"
                 style={{
                   background: 'var(--bg-input)',

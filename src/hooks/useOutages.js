@@ -56,7 +56,8 @@ function computeDuration(startedAt, endAt = null) {
 
 // ── DB row → app outage shape ─────────────────────────────────────────────────
 // Maps snake_case DB columns to the camelCase shape the rest of the app uses.
-// No page component needs to change — they receive the same object shape as before.
+// phone and email are stored server-side for ECG follow-up but are never
+// fetched to the client — they are omitted from the SELECT column list.
 function mapRow(row) {
   return {
     id:            String(row.id),
@@ -66,8 +67,6 @@ function mapRow(row) {
     severity:      row.severity,
     description:   row.description,
     reporter:      row.reporter        ?? '',
-    phone:         row.phone           ?? '',
-    email:         row.email           ?? '',
     startedAt:     row.started_at,
     resolvedAt:    row.resolved_at     ?? null,
     status:        row.status,
@@ -131,7 +130,7 @@ async function migrateFromLocalStorage() {
         p_status:         o.status        || 'active',
         p_lat:            o.lat           ?? null,
         p_lng:            o.lng           ?? null,
-        p_affected_homes: o.affectedHomes ?? 100,
+        p_affected_homes: o.affectedHomes ?? 0,
         p_token:          token,
       })
 
@@ -166,17 +165,20 @@ export function useOutages() {
   const fetchAll = useCallback(async () => {
     const { data, error: err } = await supabase
       .from('outages')
-      .select('*')
+      .select('id, region, town, area, severity, description, reporter, started_at, resolved_at, status, timestamp, lat, lng, affected_homes')
       .order('timestamp', { ascending: false })
-    if (err) {
-      console.error('[useOutages] fetch error:', err.message)
-      setError('Could not load outages. Check your connection and try again.')
-    } else {
-      setOutages((data || []).map(mapRow))
-      setError(null)
-    }
-    setLoading(false)
+   
+if (err) {
+  console.error('[useOutages] fetch error:', err.message)
+  setError('Could not load outages. Check your connection and try again.')
+} else {
+  setOutages((data || []).map(mapRow))
+  setError(null)
+}
+
+setLoading(false)
   }, [])
+
 
   useEffect(() => {
     let active = true
@@ -230,7 +232,6 @@ export function useOutages() {
   const addOutage = useCallback(async (formData) => {
     const reporterToken = crypto.randomUUID()
     const tempId = 'temp_' + crypto.randomUUID()
-    const affectedHomes = Math.floor(Math.random() * 800) + 50
 
     const optimistic = {
       id:            tempId,
@@ -240,15 +241,13 @@ export function useOutages() {
       severity:      formData.severity      || SEVERITY.MEDIUM,
       description:   formData.description,
       reporter:      formData.reporter      || '',
-      phone:         formData.phone         || '',
-      email:         formData.email         || '',
       startedAt:     formData.startedAt,
       resolvedAt:    null,
       status:        STATUS.ACTIVE,
       timestamp:     new Date().toISOString(),
       lat:           null,
       lng:           null,
-      affectedHomes,
+      affectedHomes: 0,
       duration:      computeDuration(formData.startedAt),
     }
     setOutages(prev => [optimistic, ...prev])
@@ -266,7 +265,7 @@ export function useOutages() {
       p_status:         STATUS.ACTIVE,
       p_lat:            null,
       p_lng:            null,
-      p_affected_homes: affectedHomes,
+      p_affected_homes: 0,
       p_token:          reporterToken,
     })
 
@@ -281,7 +280,7 @@ export function useOutages() {
     // Fetch real row to replace temp record (Realtime dedup will skip the duplicate)
     const { data: row, error: fetchErr } = await supabase
       .from('outages')
-      .select('*')
+      .select('id, region, town, area, severity, description, reporter, started_at, resolved_at, status, timestamp, lat, lng, affected_homes')
       .eq('id', outage_id)
       .single()
 

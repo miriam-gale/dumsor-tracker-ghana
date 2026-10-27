@@ -565,7 +565,9 @@ export default function MapPage({ outages }) {
                     </div>
                     <div className="rounded-lg p-2.5" style={{ background: 'var(--overlay-sm)' }}>
                       <div className="flex items-center gap-1 text-xs mb-1" style={{ color: 'var(--text-3)' }}><Home className="w-3 h-3" /> Homes</div>
-                      <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>{selected.affectedHomes?.toLocaleString()}</div>
+                      <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>
+                        {selected.affectedHomes > 0 ? selected.affectedHomes.toLocaleString() : '—'}
+                      </div>
                     </div>
                   </div>
                   {selected.startedAt && (

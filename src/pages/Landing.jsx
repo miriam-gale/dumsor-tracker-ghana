@@ -516,10 +516,12 @@ export default function Landing({ dark, setDark, outages = [], stats = {}, openM
                               <Clock size={10} className="flex-shrink-0" />
                               {o.duration}
                             </span>
-                            <span className="flex items-center gap-1">
-                              <Users size={10} className="flex-shrink-0" />
-                              {o.affectedHomes?.toLocaleString()} homes
-                            </span>
+                            {(o.affectedHomes > 0) && (
+                              <span className="flex items-center gap-1">
+                                <Users size={10} className="flex-shrink-0" />
+                                {o.affectedHomes.toLocaleString()} homes
+                              </span>
+                            )}
                           </div>
                         </div>
                         <span

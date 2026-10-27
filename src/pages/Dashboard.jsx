@@ -152,9 +152,11 @@ export default function Dashboard({ outages, stats, openModal }) {
                     <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-3)' }}>
                       <Clock size={10} className="flex-shrink-0" />{outage.duration}
                     </span>
-                    <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-3)' }}>
-                      <Users size={10} className="flex-shrink-0" />{outage.affectedHomes?.toLocaleString()} homes
-                    </span>
+                    {(outage.affectedHomes > 0) && (
+                      <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-3)' }}>
+                        <Users size={10} className="flex-shrink-0" />{outage.affectedHomes.toLocaleString()} homes
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
