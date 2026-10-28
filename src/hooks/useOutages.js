@@ -277,7 +277,14 @@ export function useOutages() {
     const { outage_id, reporter_token } = data[0]
     _saveToken(String(outage_id), reporter_token)
 
-    // Fetch real row to replace temp record (Realtime dedup will skip the duplicate)
+    // Promote the temp ID to the real ID before the next await.  The realtime
+    // INSERT event arrives during the fetch below; promoting the ID first means
+    // the dedup check (prev.some o.id === realId) will find a match and skip it,
+    // preventing the temp→real replacement from creating a duplicate entry.
+    const realId = String(outage_id)
+    setOutages(prev => prev.map(o => o.id === tempId ? { ...o, id: realId } : o))
+
+    // Fetch real row to fill in server-computed fields (timestamp, lat/lng, etc.)
     const { data: row, error: fetchErr } = await supabase
       .from('outages')
       .select('id, region, town, area, severity, description, reporter, started_at, resolved_at, status, timestamp, lat, lng, affected_homes')
@@ -286,9 +293,9 @@ export function useOutages() {
 
     const real = (!fetchErr && row)
       ? mapRow(row)
-      : { ...optimistic, id: String(outage_id) }
+      : { ...optimistic, id: realId }
 
-    setOutages(prev => prev.map(o => o.id === tempId ? real : o))
+    setOutages(prev => prev.map(o => o.id === realId ? real : o))
     return real
   }, [])
 
