@@ -163,6 +163,8 @@ export default function ReportPage({ addOutage }) {
     if (step === 1) {
       if (!form.severity)      errs.severity    = 'Please select a severity level'
       if (!form.startedAt)     errs.startedAt   = 'Please enter when the outage started'
+      else if (new Date(form.startedAt) > new Date())
+                               errs.startedAt   = 'Start time cannot be in the future'
       if (form.description.trim().length < 10)
                                errs.description = 'Please describe the outage (at least 10 characters)'
     }

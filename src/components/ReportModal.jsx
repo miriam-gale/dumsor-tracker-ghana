@@ -55,6 +55,8 @@ export function ReportModal({ isOpen, onClose, onSubmit }) {
     if (!form.region) e.region = 'Please select a region'
     if (!form.town.trim()) e.town = 'Town or area is required'
     if (!form.severity) e.severity = 'Please select a severity level'
+    if (form.startedAt && new Date(form.startedAt) > new Date())
+      e.startedAt = 'Start time cannot be in the future'
     if (!form.description.trim()) e.description = 'Description is required'
     else if (form.description.trim().length < 10) e.description = 'Please add more detail (min 10 characters)'
     return e
@@ -212,12 +214,13 @@ export function ReportModal({ isOpen, onClose, onSubmit }) {
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-sm outline-none border transition-colors"
                 style={{
                   background: 'var(--bg-input)',
-                  borderColor: 'var(--border)',
+                  borderColor: errors.startedAt ? '#EF4444' : 'var(--border)',
                   color: 'var(--text-1)',
                   colorScheme: 'dark',
                 }}
               />
             </div>
+            {errors.startedAt && <p className="text-xs mt-1" style={{ color: '#EF4444' }}>{errors.startedAt}</p>}
           </div>
 
           {/* Description */}
