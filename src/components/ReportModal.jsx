@@ -153,6 +153,7 @@ export function ReportModal({ isOpen, onClose, onSubmit }) {
                 value={form.town}
                 onChange={e => set('town', e.target.value)}
                 placeholder="e.g. Madina, Kumasi Central, Takoradi..."
+                maxLength={100}
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-sm outline-none border transition-colors"
                 style={{
                   background: 'var(--bg-input)',
@@ -235,6 +236,7 @@ export function ReportModal({ isOpen, onClose, onSubmit }) {
                 onChange={e => set('description', e.target.value)}
                 placeholder="Describe the outage — affected streets, estimated homes, any ECG updates or announcements..."
                 rows={3}
+                maxLength={500}
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-sm outline-none border resize-none transition-colors"
                 style={{
                   background: 'var(--bg-input)',
@@ -266,6 +268,7 @@ export function ReportModal({ isOpen, onClose, onSubmit }) {
                 value={form.phone}
                 onChange={e => set('phone', e.target.value)}
                 placeholder="0XX XXX XXXX"
+                maxLength={30}
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-sm outline-none border transition-colors"
                 style={{
                   background: 'var(--bg-input)',

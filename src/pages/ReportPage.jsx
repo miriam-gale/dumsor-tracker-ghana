@@ -102,7 +102,7 @@ function PremiumSelect({ value, onChange, error, children }) {
   )
 }
 
-function PremiumInput({ value, onChange, placeholder, error, type = 'text', icon: Icon }) {
+function PremiumInput({ value, onChange, placeholder, error, type = 'text', icon: Icon, maxLength }) {
   return (
     <div className="relative">
       {Icon && (
@@ -113,6 +113,7 @@ function PremiumInput({ value, onChange, placeholder, error, type = 'text', icon
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
+        maxLength={maxLength}
         className="w-full py-3 rounded-xl text-sm focus:outline-none transition-all border"
         style={{
           paddingLeft: Icon ? '2.5rem' : '1rem',
@@ -393,6 +394,7 @@ export default function ReportPage({ addOutage }) {
                       onChange={v => set('town', v)}
                       placeholder="e.g. Accra, Kumasi, Takoradi..."
                       error={errors.town}
+                      maxLength={100}
                     />
                   )}
                   <FieldError msg={errors.town} />
@@ -404,6 +406,7 @@ export default function ReportPage({ addOutage }) {
                     value={form.area}
                     onChange={v => set('area', v)}
                     placeholder="e.g. East Legon, Osu, Ayigya, Community 5..."
+                    maxLength={100}
                   />
                 </div>
               </>
@@ -522,6 +525,7 @@ export default function ReportPage({ addOutage }) {
                       onChange={v => set('reporter', v)}
                       placeholder="e.g. Kwame Mensah"
                       icon={User}
+                      maxLength={100}
                     />
                   </div>
                   <div>
@@ -532,6 +536,7 @@ export default function ReportPage({ addOutage }) {
                       placeholder="e.g. 024 123 4567"
                       type="tel"
                       icon={Phone}
+                      maxLength={30}
                     />
                   </div>
                 </div>
@@ -544,6 +549,7 @@ export default function ReportPage({ addOutage }) {
                     placeholder="e.g. kwame@example.com"
                     type="email"
                     icon={Mail}
+                    maxLength={254}
                   />
                 </div>
 
